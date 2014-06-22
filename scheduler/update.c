@@ -5,7 +5,7 @@
  */
 /*
  *	Lots of modifications (new guts, more or less..) by
- *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2003
+ *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2007
  */
 
 #include "hostenv.h"
@@ -446,10 +446,12 @@ deletemsg(msgid, curcfp)
 	 */
 	while (cfp->head->next[L_CTLFILE] != NULL) {
 	  MIBMtaEntry->sc.StoredRecipientsSc -= cfp->head->ngroup;
+	  cfp->head->thread->rcpts -= cfp->head->ngroup;
 	  cfp->head->ngroup = 0;
 	  unvertex(cfp->head,0,1);
 	}
 	MIBMtaEntry->sc.StoredRecipientsSc -= cfp->head->ngroup;
+	cfp->head->thread->rcpts -= cfp->head->ngroup;
 	cfp->head->ngroup = 0;
 	unvertex(cfp->head,0,1);
 }
@@ -550,6 +552,7 @@ static void vtxupdate(vp, index, ok)
 	    /* remove us from the vertex indices */
 
 	    vp->ngroup -= 1;
+	    vp->thread->rcpts -= 1;
 	    MIBMtaEntry->sc.StoredRecipientsSc -= 1;
 
 	    /* compact the index array */

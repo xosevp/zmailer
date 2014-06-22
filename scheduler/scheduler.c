@@ -4,7 +4,7 @@
  */
 /*
  *	Lots of modifications (new guts, more or less..) by
- *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2004
+ *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2007
  */
 
 /*
@@ -328,7 +328,7 @@ static void cfp_free0(cfp)
 	if (!cfp->head) {
 	  /* This should *not* be happening.. */
 	  sfprintf(sfstderr,
-		   "%s: SHOULD NOT HAPPEN: (except for ETRN files) cfp->head == NULL; spoolid: %s\n",
+		   "%s: SHOULD NOT HAPPEN: (except for ETRN files - and locked messages) cfp->head == NULL; spoolid: %s\n",
 		   progname, cfp->spoolid);
 	  unctlfile(cfp, 1);
 	  return;
@@ -340,6 +340,7 @@ static void cfp_free0(cfp)
 	  nvp = vp->next[L_CTLFILE];
 
 	  MIBMtaEntry->sc.StoredRecipientsSc   -= vp->ngroup;
+	  if (vp->thread) vp->thread->rcpts -= vp->ngroup;
 	  vp->ngroup = 0;
 	  unvertex(vp,1,1); /* Don't unlink()! Just free()! */
 	}
@@ -1396,7 +1397,7 @@ int syncweb(dq)
 	long ino;
 
 	/* Any work to do ? */
-	if (dq->wrksum == 0) return -1;
+	if (dq->wrksum == 0)  return -1;
 
 	/* Be responsive, check query channel */
 	queryipccheck();
@@ -1437,6 +1438,9 @@ int syncweb(dq)
 
 	  break;
 	}
+
+	/* If the queue had only "not before" items ... */
+	if (wrkidx < 0) return -1;
 
 	/* Ok some, decrement the count to change it to index */
 	dq->wrkcount -= 1;
@@ -1568,6 +1572,7 @@ static int sync_cfps(oldcfp, newcfp, proc)
 	      for (j = i+1; j < ovp->ngroup; ++j)
 		ovp->index[j-1] = ovp->index[j];
 	      ovp->ngroup -= 1;
+	      ovp->thread->rcpts -= 1;
 	      MIBMtaEntry->sc.StoredRecipientsSc -= 1;
 	    next_i:;
 	    }
@@ -1607,6 +1612,7 @@ static int sync_cfps(oldcfp, newcfp, proc)
 	      novp = ovp->next[L_CTLFILE];
 
 	      MIBMtaEntry->sc.StoredRecipientsSc -= vp->ngroup;
+	      ovp->thread->rcpts -= vp->ngroup;
 	      ovp->ngroup = 0;
 	      unvertex(ovp,-1,1); /* Don't unlink()! free() *just* ovp! */
 
@@ -1631,6 +1637,7 @@ static int sync_cfps(oldcfp, newcfp, proc)
 	  novp = ovp->next[L_CTLFILE];
 
 	  MIBMtaEntry->sc.StoredRecipientsSc -= ovp->ngroup;
+	  ovp->thread->rcpts -= ovp->ngroup;
 	  ovp->ngroup = 0;
 	  unvertex(ovp,-1,1); /* Don't unlink()! free() *just* ovp! */
 	  /* Leaves CFP unharmed */
@@ -1855,6 +1862,7 @@ static struct ctlfile *schedule(fd, file, ino, reread)
 	cfp = vtxprep(slurp(fd, ino), file, reread);
 	if (cfp == NULL) {
 	  if (!vtxprep_skip) {	/* Unless skipped.. */
+	    /* debug thing to be visible at truss/strace/whatnot */
 	    eunlink(file,"sch-sch-done");	/* everything here has been processed */
 	    if (verbose)
 	      sfprintf(sfstdout,"completed, unlink %s\n",file);
@@ -1876,6 +1884,7 @@ static struct ctlfile *schedule(fd, file, ino, reread)
 	  for (vp = cfp->head; vp != NULL; vp = vp->next[L_CTLFILE]) {
 	    /* Put into the schedules */
 	    vtxdo(vp, cehead, file);
+	    vp->thread->rcpts += vp->ngroup;
 	  }
 	}
 
@@ -2040,7 +2049,8 @@ struct offsort {
 	int	notifyflg;
 	char	*sender;
 	/* char	*dsnrecipient; */
-	time_t	wakeup;
+	/* time_t	wakeup; */
+	time_t	deadline; /* Deliver BY= parameter */
 };
 
 /* ``bcfcn'' is used by the qsort comparison routine,
@@ -2119,7 +2129,7 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 	int offspc, mypid;
 	int prevrcpt = -1;
 	int is_turnme = 0;
-	time_t wakeuptime;
+	/* time_t wakeuptime; */
 	long format = 0;
 
 	char fpath[128], path[128], path2[128];
@@ -2152,7 +2162,7 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 	lp = &cfp->offset[0];
 	for (i = 0; i < cfp->nlines; ++i, ++lp) {
 	  cp = cfp->contents + *lp + 1;
-	  wakeuptime = 0;
+	  /* wakeuptime = 0; */
 	  if (*cp == _CFTAG_LOCK) {
 	    /*
 	     * This can happen when we restart the scheduler, and
@@ -2160,7 +2170,7 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 	     * (and DEFINITELY during resync! when we simply ignore locks)
 	     */
 	    if (!lockverify(cfp, cp, !rereading)) {
-#if 0
+#if 1
 	      long ino = 0;
 	      /*
 	       * IMO we are better off by forgetting for a while that
@@ -2176,6 +2186,9 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 		  sfclose(vfp);
 		}
 	      }
+	      sfprintf(sfstderr,
+		       "scheduler: Skipped a job-file because it is held locked by PID=%6.6s\n",cp+1);
+
 	      cfp_free(cfp, NULL);
 	      ++vtxprep_skip;
 	      ++vtxprep_skip_lock;
@@ -2186,7 +2199,7 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 		      scanner to check things deeply ? */
 	      cp = strrchr(file,'/');
 	      if (cp) ino = atol(cp+1); else ino = atol(file);
-	      dq_insert(NULL, ino, file, 32);
+	      dq_insert(dirq, ino, file, 32);
 
 	      return NULL;
 #else
@@ -2289,7 +2302,7 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 		cp += _CFTAG_RCPTDELAYSIZE;
 	      } else
 		offarr[opcnt].delayslot = 0;
-	      offarr[opcnt].wakeup = wakeuptime;
+	      /* offarr[opcnt].wakeup = wakeuptime; */
 	      offarr[opcnt].myidx = i;
 	      offarr[opcnt].headeroffset = -1;
 	      offarr[opcnt].drptoffset = -1;
@@ -2612,11 +2625,11 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 	      vp->notary          = NULL;
 #endif
 	      vp->ngroup       = i - svn;
-	      MIBMtaEntry->sc.StoredRecipientsSc   += (i - svn);
-	      MIBMtaEntry->sc.ReceivedRecipientsSc += (i - svn);
+	      MIBMtaEntry->sc.StoredRecipientsSc   += vp->ngroup;
+	      MIBMtaEntry->sc.ReceivedRecipientsSc += vp->ngroup;
 
 	      /* vp->sender       = strsave(offarr[svn].sender); */
-	      vp->wakeup       = offarr[svn].wakeup;
+	      /* vp->wakeup       = offarr[svn].wakeup; */
 	      vp->headeroffset = offarr[svn].headeroffset; /*They are similar*/
 	      vp->drptoffset   = offarr[svn].drptoffset;
 	      vp->notaryflg    = offarr[svn].notifyflg;
@@ -2673,11 +2686,11 @@ static struct ctlfile *vtxprep(cfp, file, rereading)
 	  vp->notary       = NULL;
 #endif
 	  vp->ngroup = i - svn;
-	  MIBMtaEntry->sc.StoredRecipientsSc   += (i - svn);
-	  MIBMtaEntry->sc.ReceivedRecipientsSc += (i - svn);
+	  MIBMtaEntry->sc.StoredRecipientsSc   += vp->ngroup;
+	  MIBMtaEntry->sc.ReceivedRecipientsSc += vp->ngroup;
 
 	  /* vp->sender = strsave(offarr[snv].sender); */
-	  vp->wakeup       = offarr[svn].wakeup;
+	  /* vp->wakeup       = offarr[svn].wakeup; */
 	  vp->headeroffset = offarr[svn].headeroffset; /* Just any of them will do */
 	  vp->drptoffset = offarr[svn].drptoffset;
 	  vp->notaryflg  = offarr[svn].notifyflg;

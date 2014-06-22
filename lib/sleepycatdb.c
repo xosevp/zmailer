@@ -161,7 +161,7 @@ static int readsleepycfg(prv)
 	  if (CISTREQ(cmd, "rpc-cl-timeout")) {
 	  }
 #endif
-#if   defined(HAVE_DB3) || defined(HAVE_DB4)
+#if   defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 	    if (CISTREQ(cmd,"envhome")) {
 	    if (ZSE.envhome) free((void*)ZSE.envhome);
 	    ZSE.envhome  = strdup(param);
@@ -261,7 +261,7 @@ void zsleepyprivatefree(prv)
 {
 	ZSleepyEnvSet *ZSE = prv->ZSE;
 	if (ZSE && ZSE->refcount == 1) {
-#if   defined(HAVE_DB3) || defined(HAVE_DB4)
+#if   defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 	  ZSE->env->close(prv->ZSE->env, 0);
 #endif
 	  if (ZSE->envhome) free((void*)(ZSE->envhome));
@@ -301,7 +301,7 @@ int zsleepyprivateopen(prv, roflag, mode, comment)
 	}
 #endif
 
-#if   defined(HAVE_DB3) || defined(HAVE_DB4)
+#if   defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 
 	if (prv->ZSE && prv->ZSE->envhome && !prv->ZSE->env) {
 	    if (comment) *comment = " environment of";
@@ -331,7 +331,7 @@ int zsleepyprivateopen(prv, roflag, mode, comment)
 	err = db_create(&db, prv->ZSE ? prv->ZSE->env : NULL, 0);
 	if (err == 0 && db != NULL) {
 	    err = db->open( db,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 			    NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 			    prv->filename, NULL, prv->dbtype,

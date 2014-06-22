@@ -1,8 +1,7 @@
 /*
  *	ZMailer 2.99.16+ Scheduler "threads" routines
  *
- *	Copyright Matti Aarnio <mea@nic.funet.fi> 1995-2003
- *
+ *	Copyright Matti Aarnio <mea@nic.funet.fi> 1995-2007
  *
  *	These "threads" are for book-keeping of information
  *	regarding schedulable recipient vertices
@@ -769,7 +768,7 @@ struct thread *thr;
 	    ur_arr[i]->previtem = ur_arr[i-1];
 	  if (i < (n-1))
 	    ur_arr[i]->nextitem = ur_arr[i+1];
-#if 1
+#if 0 /* this variable is no longer existing */
 	  /* 4c) Clear wakeup timer; the feed_child() will refuse
 	     to feed us, if this one is not cleared.. */
 	  ur_arr[i]->wakeup = 0;
@@ -893,10 +892,11 @@ thread_start(thr, queueonly_too)
 
 	  /* Selected one of them.. */
 
+	  /* Is this idle chain leader?   Set pnext as new leader */
+	  if (thg->idleproc == proc) thg->idleproc = proc->pnext;
+	  /* Unlink from idle proc chain */
 	  if (proc->pprev) proc->pprev->pnext = proc->pnext;
 	  if (proc->pnext) proc->pnext->pprev = proc->pprev;
-	  if (thg->idleproc == proc) thg->idleproc = proc->pnext;
-
 	  proc->pnext = proc->pprev   = NULL;
 
 	  thg->idlecnt -= 1;
@@ -957,6 +957,7 @@ thread_start(thr, queueonly_too)
 
 	  if (thr->proc)   proc->pnext = thr->proc;
 	  if (proc->pnext) proc->pnext->pprev = proc;
+	  if (proc->pprev) proc->pprev->pnext = proc;
 
 	  thr->proc     = proc;
 	  thr->thrkids += 1;
@@ -1151,7 +1152,6 @@ thread_reschedule(thr, retrytime, index)
 	struct vertex *vtx = thr->thvertices;
 	struct vertex *nvtx;
 	time_t wakeup = 0;
-	int skew;
 
 	if (verbose)
 	  sfprintf(sfstderr,"thread_reschedule() ch=%s ho=%s jobs=%d thr=%p proc=%p\n",
@@ -1170,62 +1170,50 @@ thread_reschedule(thr, retrytime, index)
 	mytime(&now);
 
 	/* if we are already scheduled for the future, don't reschedule */
-	if (vtx->wakeup > now) {
-	  thr->wakeup = vtx->wakeup;
+	if (thr->wakeup > now) {
+	  /* thr->wakeup = vtx->wakeup; */
 	  if (verbose)
 	    sfprintf(sfstderr,"...prescheduled\n");
 	  goto timechain_handling;
-	} else if (vtx->wakeup < now-7200 /* more than 2h in history .. */ )
-	  vtx->wakeup = now;
+	}
 
-	if (vtx->thgrp->ce.nretries <= 0) {
+	if (thr->thgrp->ce.nretries <= 0) {
 	  if (verbose)
 	    sfprintf(sfstderr,"...ce->retries = %d\n", vtx->thgrp->ce.nretries);
 	  goto timechain_handling;
 	}
 
-	if (thr->retryindex >= vtx->thgrp->ce.nretries) {
-	  if (vtx->thgrp->ce.nretries > 1)
-	    thr->retryindex = ranny(vtx->thgrp->ce.nretries-1);
+	if (thr->retryindex >= thr->thgrp->ce.nretries) {
+	  if (thr->thgrp->ce.nretries > 1)
+	    thr->retryindex = ranny(thr->thgrp->ce.nretries-1);
 	  else
 	    thr->retryindex = 0;
 	}
+
 
 	/*
 	 * clamp retry time to a predictable interval so we
 	 * eventually bunch up deliveries.
 	 */
-	if (retrytime > 100000 && retrytime < now+63)
-	  vtx->wakeup = now;
-#if 0
-	skew = vtx->wakeup % vtx->thgrp->ce.interval;
-	if (skew <= vtx->thgrp->ce.interval / 2)
-	  skew = - (skew + (vtx->thgrp->ce.skew - 1));
-	else
-	  skew = skew + (vtx->thgrp->ce.skew - 1);
-	skew = skew / vtx->thgrp->ce.skew; /* want int div truncation */
-	
-	vtx->wakeup += (skew +
-			vtx->thgrp->ce.retries[thr->retryindex] * vtx->thgrp->ce.interval);
-#else
-	/* Actually we do NOT want to have synchronization of threads,
-	   as such causes simultaneous start of transporters, which
-	   causes "somewhat" spiky load behaviour */
+	if (retrytime > 100000 && retrytime < now+63) {
+	  thr->wakeup = now;
+	  /* goto timechain_handling ??? */
+	}
 
-	skew = vtx->thgrp->ce.retries[thr->retryindex] * vtx->thgrp->ce.interval;
-	if (retrytime <= 100000 &&
-	    (int)retrytime > skew)
-	  skew = retrytime;
-	vtx->wakeup += skew;
-#endif
+	thr->wakeup += thr->thgrp->ce.retries[thr->retryindex] * thr->thgrp->ce.interval;
+	thr->retryindex++;
+
+	wakeup = thr->wakeup;
+
 	thr->retryindex++;
 
 	/* If history, move forward by ``ce.interval'' multiple */
-	if (vtx->wakeup < now)
-	  vtx->wakeup += ((((now - vtx->wakeup) / vtx->thgrp->ce.interval)+1)
-			  * vtx->thgrp->ce.interval);
+	if (thr->wakeup < now)
+	  thr->wakeup += ((((now - thr->wakeup) / thr->thgrp->ce.interval)+1)
+			  * thr->thgrp->ce.interval);
 
-	wakeup = vtx->wakeup;
+	wakeup = thr->wakeup;
+
 
 	if (retrytime < now+63)
 	  retrytime = wakeup;
@@ -1259,14 +1247,18 @@ thread_reschedule(thr, retrytime, index)
 
 	  /* Didn't expire, so time to tune the wakeup ... */
 
+#if 0
 	  if (vtx->wakeup < retrytime)
 	    vtx->wakeup = retrytime;
 	  if (wakeup > vtx->wakeup || wakeup == 0)
 	    wakeup = vtx->wakeup;
+#endif
 	}
 
+#if 0
 	if (thr != NULL)
 	  thr->wakeup = wakeup;
+#endif
 
  timechain_handling:
 	/* In every case the rescheduling means we move this thread
@@ -1312,12 +1304,11 @@ reschedule(vp, factor, index)
 		   vp->orig[L_HOST]->name,
 		   vp->cfp->mid);
 	/* if we are already scheduled for the future, don't reschedule */
-	if (vp->wakeup > now) {
+	if (thr->wakeup > now) {
 	  if (verbose)
 	    sfprintf(sfstderr,"prescheduled\n");
 	  return;
-	} else if (vp->wakeup < now-7200 /* more than 2h .. */ )
-	  vp->wakeup = now;
+	}
 
 	if (ce->nretries <= 0) {
 	  if (verbose)
@@ -1336,36 +1327,36 @@ reschedule(vp, factor, index)
 	   * clamp retry time to a predictable interval so we
 	   * eventually bunch up deliveries.
 	   */
-	  skew = vp->wakeup % ce->interval;
+	  skew = thr->wakeup % ce->interval;
 	  if (skew <= ce->interval / 2)
 	    skew = - (skew + (ce->skew - 1));
 	  else
 	    skew = skew + (ce->skew - 1);
 	  skew = skew / ce->skew; /* want int div truncation */
 
-	  vp->wakeup += (skew +
-			 ce->retries[thr->retryindex] * ce->interval);
+	  thr->wakeup += (skew +
+			  ce->retries[thr->retryindex] * ce->interval);
 	  thr->retryindex++;
 	} else if (factor < -1) {
-	  vp->wakeup = -factor;
+	  thr->wakeup = -factor;
 	} else
-	  vp->wakeup += factor * ce->interval;
+	  thr->wakeup += factor * ce->interval;
 
 	/* I THINK there could be an assert that if this happens,
 	   something is WRONG.. */
 	if (vp->attempts == 0)
-	  vp->wakeup = now;
+	  thr->wakeup = now;
 
 	/* XX: change this to a mod expression */
-	if (vp->wakeup < now)
-	  vp->wakeup = ((((now - vp->wakeup) / ce->interval)+1)
-			* ce->interval) + 10 + 2*thr->jobs;
+	if (thr->wakeup < now)
+	  thr->wakeup = ((((now - thr->wakeup) / ce->interval)+1)
+			 * ce->interval) + 10 /* + 2*thr->jobs */ ;
 
 	/* Makes sure that next future event is at +10+2*jobcount seconds
 	   in the future..  A kludge approach, but still.. */
 
 	if (vp->ce_expiry > 0
-	    && vp->ce_expiry <= vp->wakeup
+	    && vp->ce_expiry <= thr->wakeup
 	    && vp->attempts > 0) {
 	  if (verbose)
 	    sfprintf(sfstderr,"ce_expiry = %d, %d attempts\n",
@@ -1455,9 +1446,8 @@ idle_cleanup()
 	  if (thg->idleproc) {
 	    struct procinfo *p;
 	    
-	    p  =  thg->idleproc;
+	    for (p = thg->idleproc; p != NULL; p = p->pnext) {
 
-	    while (p != NULL) {
 	      if ((thg->cep->idlemax + p->hungertime < now) &&
 		  (p->cmdlen == 0) && (p->tofd >= 0)) {
 		/* It is old enough -- ancient, one might say.. */
@@ -1472,9 +1462,6 @@ idle_cleanup()
 		p->tofd       = -1;
 		++freecount;
 	      }
-
-	      /* Move to the next possible idle process */
-	      p = p->pnext;
 	    }
 	  }
 	  /* If there are no threads, nor transporters, delete the thg */
@@ -1499,6 +1486,102 @@ struct thread *th;
 	return (now - oo);
 }
 
+static void _thread_detail_detail(fp, mqmode, thr, thrkidsump, procsp)
+     Sfio_t *fp;
+     int mqmode, *thrkidsump, *procsp;
+     struct thread *thr;
+{
+	int spc = (mqmode & MQ2MODE_FULL) ? ' ' : '\t';
+
+
+	if (mqmode & MQ2MODE_FULL)
+	  sfprintf(fp,"N=%-3d R=%-3d A=%-2d", thr->jobs, thr->rcpts, thr->attempts);
+	if (mqmode & MQ2MODE_FULL2)
+	  sfprintf(fp,"N=%d\tR=%d\tA=%d", thr->jobs, thr->rcpts, thr->attempts);
+	
+	if (thr->proc != NULL &&
+	    thr->proc->pthread == thr) {
+	  
+	  int thrprocs = 0;
+	  struct procinfo *proc;
+
+	  for (proc = thr->proc; proc; proc = proc->pnext) {
+	    ++thrprocs;
+	    if (procsp)     *procsp     += 1;
+	    if (thrkidsump) *thrkidsump += 1;
+	  }
+
+	  if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
+	    if (thr->thrkids != thrprocs)
+	      sfprintf(fp, "%cKids=%d/%d", spc, thr->thrkids, thrprocs);
+
+	    sfprintf(fp, "%cP={", spc);
+	    for (proc = thr->proc; proc ; proc = proc->pnext) {
+	      sfprintf(fp, "%d", (int)proc->pid);
+	      if (proc->pnext) sfprintf(fp, ",");
+	    }
+	    sfprintf(fp, "}");
+
+	    sfprintf(fp, "%cHA={", spc);
+	    for (proc = thr->proc; proc ; proc = proc->pnext) {
+	      sfprintf(fp, "%d", (int)(now - proc->hungertime));
+	      if (proc->pnext) sfprintf(fp, ",");
+	    }
+	    sfprintf(fp, "}s");
+
+	    sfprintf(fp, "%cFA={", spc);
+	    for (proc = thr->proc; proc ; proc = proc->pnext) {
+	      if (proc->feedtime == 0)
+		sfprintf(fp, "never");
+	      else
+		sfprintf(fp, "%d", (int)(now - proc->feedtime));
+	      if (proc->pnext) sfprintf(fp, ",");
+	    }
+	    sfprintf(fp, "}s");
+
+	    sfprintf(fp, "%cOF={", spc);
+	    for (proc = thr->proc; proc ; proc = proc->pnext) {
+	      sfprintf(fp, "%d", proc->overfed);
+	      if (proc->pnext) sfprintf(fp, ",");
+	    }
+	    sfprintf(fp, "}");
+
+	    sfprintf(fp, "%cS={", spc);
+	    for (proc = thr->proc; proc ; proc = proc->pnext) {
+	      sfprintf(fp, "%s", proc_state_names[proc->state]);
+	      if (proc->pnext) sfprintf(fp, ",");
+	    }
+	    sfprintf(fp, "}");
+
+	    sfprintf(fp, "%cUF=%d", spc, thr->unfed);
+	  }
+
+	} else if (thr->wakeup > now) {
+	  if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
+	    sfprintf(fp,"%cW=%ds", spc, (int)(thr->wakeup - now));
+	  }
+	} else if (thr->pending) {
+	  if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
+	    sfprintf(fp,"%cpend=%s", spc, thr->pending);
+	  }
+	}
+
+	if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
+	  char timebuf[20];
+	  *timebuf = 0;
+	  saytime((long)oldest_age_on_thread(thr), timebuf, 1);
+	  sfprintf(fp, "%cQA=%s", spc, timebuf);
+
+	  if (thr->thvertices && thr->thvertices->ce_pending)
+	    if (thr->thvertices->ce_pending != SIZE_L && spc == ' ')
+	      sfprintf(fp, "%s",
+		       (thr->thvertices->ce_pending ==
+			L_CHANNEL ? " channelwait" : " threadwait"));
+	  sfprintf(fp, "\n");
+	}
+}
+
+/* The  "SHOW THREADS"  diagnostic tool */
 void thread_report(fp,mqmode)
      Sfio_t *fp;
      int mqmode;
@@ -1514,8 +1597,6 @@ void thread_report(fp,mqmode)
 	int rcptsum = 0;
 	struct procinfo *p;
 	struct thread *thr;
-
-	int spc = (mqmode & MQ2MODE_FULL) ? ' ' : '\t';
 
 	mytime(&now);
 
@@ -1600,103 +1681,9 @@ void thread_report(fp,mqmode)
 	    }
 
 	    jobsum += thr->jobs;
-
-	    if (mqmode & MQ2MODE_FULL)
-	      sfprintf(fp,"R=%-3d A=%-2d", thr->jobs, thr->attempts);
-	    if (mqmode & MQ2MODE_FULL2)
-	      sfprintf(fp,"R=%d\tA=%d", thr->jobs, thr->attempts);
-
 	    ++cnt;
-	    if (thr->proc != NULL &&
-		thr->proc->pthread == thr) {
 
-	      int thrprocs = 0;
-	      struct procinfo *proc;
-
-	      for (proc = thr->proc; proc; proc = proc->pnext) {
-		++procs;
-		++thrprocs;
-		++thrkidsum;
-	      }
-
-	      if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
-		proc = thr->proc;
-
-		if (thr->thrkids != thrprocs)
-		  sfprintf(fp, "%cKids=%d/%d", spc, thr->thrkids, thrprocs);
-
-		sfprintf(fp, "%cP={", spc);
-		while (proc) {
-		  sfprintf(fp, "%d", (int)proc->pid);
-		  if (proc->pnext) sfprintf(fp, ",");
-		  proc = proc->pnext;
-		}
-		sfprintf(fp, "}");
-
-		proc = thr->proc;
-		sfprintf(fp, "%cHA={", spc);
-		while (proc) {
-		  sfprintf(fp, "%d", (int)(now - proc->hungertime));
-		  if (proc->pnext) sfprintf(fp, ",");
-		  proc = proc->pnext;
-		}
-		sfprintf(fp, "}s");
-
-		proc = thr->proc;
-		sfprintf(fp, "%cFA={", spc);
-		while (proc) {
-		  if (proc->feedtime == 0)
-		    sfprintf(fp, "never");
-		  else
-		    sfprintf(fp, "%d", (int)(now - proc->feedtime));
-		  if (proc->pnext) sfprintf(fp, ",");
-		  proc = proc->pnext;
-		}
-		sfprintf(fp, "}s");
-
-		proc = thr->proc;
-		sfprintf(fp, "%cOF={", spc);
-		while (proc) {
-		  sfprintf(fp, "%d", proc->overfed);
-		  if (proc->pnext) sfprintf(fp, ",");
-		  proc = proc->pnext;
-		}
-		sfprintf(fp, "}");
-
-		proc = thr->proc;
-		sfprintf(fp, "%cS={", spc);
-		while (proc) {
-		  sfprintf(fp, "%s", proc_state_names[proc->state]);
-		  if (proc->pnext) sfprintf(fp, ",");
-		  proc = proc->pnext;
-		}
-		sfprintf(fp, "}");
-
-		sfprintf(fp, "%cUF=%d", spc, thr->unfed);
-	      }
-
-	    } else if (thr->wakeup > now) {
-	      if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
-		sfprintf(fp,"%cW=%ds", spc, (int)(thr->wakeup - now));
-	      }
-	    } else if (thr->pending) {
-	      if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
-		sfprintf(fp,"%cpend=%s", spc, thr->pending);
-	      }
-	    }
-
-	    if (mqmode & (MQ2MODE_FULL|MQ2MODE_FULL2)) {
-	      *timebuf = 0;
-	      saytime((long)oldest_age_on_thread(thr), timebuf, 1);
-	      sfprintf(fp, "%cQA=%s", spc, timebuf);
-
-	      if (thr->thvertices && thr->thvertices->ce_pending)
-		if (thr->thvertices->ce_pending != SIZE_L && spc == ' ')
-		  sfprintf(fp, "%s",
-			   (thr->thvertices->ce_pending ==
-			    L_CHANNEL ? " channelwait" : " threadwait"));
-	      sfprintf(fp, "\n");
-	    }
+	    _thread_detail_detail(fp, mqmode, thr, &thrkidsum, &procs);
 
 	  }
 
@@ -1766,6 +1753,7 @@ void thread_report(fp,mqmode)
 }
 
 
+/* The  "SHOW THREAD channel host"  diagnostic tool */
 void thread_detail_report(fp,mqmode,channel,host)
      Sfio_t *fp;
      int mqmode;
@@ -1804,11 +1792,17 @@ void thread_detail_report(fp,mqmode,channel,host)
 	}
 	if (th) {
 	  /* Found it! */
+
+	  /* First line is MQ2MODE_FULL summary report, rest are detail report */
+	  sfprintf(fp, "#%s/%s/%d  ", th->channel, th->host, th->thgrp->withhost);
+	  _thread_detail_detail(fp, MQ2MODE_FULL, th, NULL, NULL);
+
+	  /* Now the actual detail report */
 	  for (vp = th->thvertices; vp; vp = vp->nextitem) {
 	    struct ctlfile *cfp = vp->cfp;
 	    for (i = 0; i < vp->ngroup; ++i) {
 	      /* Spoolfile */
-	      sfprintf(fp, "%s%s", cfpdirname(cfp->dirind), cfp->mid);
+	      sfprintf(fp, "%s%s   ", cfpdirname(cfp->dirind), cfp->mid);
 
 	      /* How manyth in a group ? */
 	      sfprintf(fp, "\t%d", i);
@@ -1819,15 +1813,15 @@ void thread_detail_report(fp,mqmode,channel,host)
 	      /* Expiry stamp */
 	      sfprintf(fp,"\t%ld", (long)vp->ce_expiry);
 	      /* next wakeup */
-	      sfprintf(fp,"\t%ld", (long)vp->wakeup);
+	      sfprintf(fp,"\t%ld", (long)th->wakeup);
 	      /* last feed time */
 	      sfprintf(fp,"\t%ld", (long)vp->lastfeed);
 	      /* attempts */
 	      sfprintf(fp,"\t%d\t", vp->attempts);
 	      /* ce_pending */
-	      if (vp->wakeup > now) {
+	      if (th->wakeup > now) {
 		*buf = 0;
-		saytime((long)(vp->wakeup - now), buf, 1);
+		saytime((long)(th->wakeup - now), buf, 1);
 		sfprintf(fp,"retry in %s", buf);
 	      } else {
 		switch(vp->ce_pending) {

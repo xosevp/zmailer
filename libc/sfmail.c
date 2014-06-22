@@ -539,7 +539,7 @@ _sfmail_close__(fp,inop, mtimep, mtimensp, async)
 	  }
 	  
 	  /* Here we are when there is only one entry in the inputdirs:*/
-	  if (s == NULL && i > 0 && *rd != 0) {
+	  if (ord == NULL && *rd != 0) {
 	    if (s) *s = 0;
 	    sprintf(nmessage, "%s/%s", postoffice, rd);
 	    if (s) *s = ':';
@@ -589,8 +589,7 @@ _sfmail_close__(fp,inop, mtimep, mtimensp, async)
 	      rd = s+1;
 	    }
 
-	    /* Here we are when there is only one entry in
-	       the routerdirs: */
+	    /* Here we are when there is only one entry in the routerdirs: */
 	    if (s == NULL && i > 0 && *rd != 0) {
 	      if (s) *s = 0;
 	      sprintf(nmessage, "%s/%s", postoffice, rd);

@@ -261,7 +261,7 @@ char *argv[];
 
 #ifdef HAVE_DB
 
-#if defined(HAVE_DB3) || defined(HAVE_DB4)
+#if defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 
   if (strcmp(argv[1],"btree")==0) {
     DB *dbfile;
@@ -273,7 +273,7 @@ char *argv[];
     rc = db_create(&dbfile, NULL, 0);
     if (rc == 0)
       rc = dbfile->open(dbfile,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 			NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 			dbasename, NULL, DB_BTREE,
@@ -330,7 +330,7 @@ char *argv[];
     rc = db_create(&dbfile, NULL, 0);
     if (rc == 0)
       rc = dbfile->open(dbfile,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 			NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 			dbasename, NULL, DB_HASH,

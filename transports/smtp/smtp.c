@@ -4100,7 +4100,7 @@ smtp_sync(SS, r, nonblocking)
 	SmtpState *SS;
 	int r, nonblocking;
 {
-	char *s, *eof, *eol;
+	char *s, *eof, *eol, *eol2;
 	int idx  = 0, nextidx, code = 0;
 	int rc   = EX_OK, len;
 	int err  = 0;
@@ -4120,6 +4120,8 @@ smtp_sync(SS, r, nonblocking)
 	if (SS->verboselog)
 	  fprintf(SS->verboselog, "smtp_sync(SS, r=%d, nonblocking=%d)  idx=%d\n", r, nonblocking, SS->pipereplies);
 #endif
+	if (logfp)
+	  fprintf(logfp,"%s#\tsmtp_sync(SS, r=%d, nonblocking=%d)  idx=%d\n", logtag(), r, nonblocking, SS->pipereplies);
 
 	if (SS->pipereplies == 0) {
 	  SS->continuation_line = 0;
@@ -4182,20 +4184,28 @@ smtp_sync(SS, r, nonblocking)
 	  } /* Special LMTP BDAT LAST/DATA mode */
 
       rescan_line_0: /* processed some continuation line */
-	  s = eol;
       rescan_line:   /* Got additional input */
+	  s = eol;
 
 	  when_timeout = time(&now) + timeout;
 
 	  eof = SS->pipebuf + SS->pipebufsize;
-	  for (eol = s; eol < eof; ++eol)
-	    if (*eol == '\n') break;
-	  if (eol < eof && *eol == '\n') {
+	  for (eol2 = s; eol2 < eof; ++eol2)
+	    if (*eol2 == '\n') break;
+	  if (eol2 < eof && *eol2 == '\n') {
+	    eol = eol2;
 	    ++eol; /* points to char AFTER the newline */
-	    if (debug && logfp)
+	    if (logfp) {
 	      fprintf(logfp,"%s#\t(pipebufsize=%d, s=%d, eol=%d)\n",
 		      logtag(), SS->pipebufsize,(int)(s-SS->pipebuf),
 		      (int)(eol-SS->pipebuf));
+	      /*
+	      fprintf(logfp,"%s#\t<< ", logtag());
+	      fwrite(SS->pipebuf, 1, (int)(eol-SS->pipebuf), logfp);
+	      fprintf(logfp,"\n");
+	      */
+	    }
+	    
 	  } else { /* No newline.. Read more.. */
 	    int en, waitwr;
 
@@ -4234,7 +4244,7 @@ smtp_sync(SS, r, nonblocking)
 	      }
 
 	      en = errno;
-	      if (debug && logfp)
+	      if (logfp)
 		fprintf(logfp,"%s#\tselect_sleep(%d,%d); rc=%d\n",
 			logtag(),infd,(int)(when_timeout - now),err);
 	      if (err < 0) {
@@ -4304,16 +4314,22 @@ smtp_sync(SS, r, nonblocking)
 			 SS->pipeindex - idx);
 	      err = EX_TEMPFAIL;
 	      break;
+
 	    } else {
 
 	      /* more data for processing.. munch munch.. */
 	      if (s > SS->pipebuf) {
 		/* Compress the buffer at first */
-		memcpy(SS->pipebuf, s, SS->pipebufsize - (s - SS->pipebuf));
-		SS->pipebufsize -= (s - SS->pipebuf);
+		int blklen = (s - SS->pipebuf);
+		SS->pipebufsize -= blklen;
+		if (logfp)
+		  fprintf(logfp, "%s#\tCompressing, prevlen=%d taillen=%d",
+			  logtag(), blklen, SS->pipebufsize);
+		memmove(SS->pipebuf, s, SS->pipebufsize);
 		s   = SS->pipebuf;
 		eol = SS->pipebuf;
 	      }
+	      /* Recycling the variable, tell if the block changed */
 	      eof = SS->pipebuf;
 	      if ((SS->pipebufsize+len+1) > SS->pipebufspace) {
 		while ((SS->pipebufsize+len+2) > SS->pipebufspace)
@@ -4572,8 +4588,8 @@ if (SS->verboselog) fprintf(SS->verboselog,"[Some OK - code=%d, idx=%d, pipeinde
 	    int sz = eol - SS->pipebuf;
 	    SS->pipebufsize -= sz;
 	    if (SS->pipebufsize > 0)
-	      memcpy(SS->pipebuf, eol, SS->pipebufsize);
-	    s -= sz;
+	      memmove(SS->pipebuf, eol, SS->pipebufsize);
+	    s   = SS->pipebuf;
 	    eol = SS->pipebuf;
 	  }
 

@@ -1,3 +1,39 @@
+2014-06-23  Matti Aarnio  <mea@zmailer.org>
+
+	* configure.in:
+	    Modernize configure.in, support Sleepycat DB 5. (2012)
+
+	* lib/sleepycatdb.c, smtpserver/policytest.c, utils/makedb/dblook.c,
+	  utils/makedb/makedb.c:
+	    Support for Sleepycat DB 5. (2012)
+
+	* lib/mail.c, lib/sfmail.c:
+	    Correct var reference to old dir.  (2009)
+
+	* scheduler/agenda.c, scheduler/mailq.c, scheduler/qprint.c,
+	  scheduler/scheduler.c, scheduler/threads.c, scheduler/update.c:
+	    Queue printout enhancement.
+	    SMTP input/output BY= deadline parameter.
+	    Moved wakeup time from each vertex to thread.
+	    (2007)
+
+	* scheduler/threads.c, scheduler/transport.c:
+	    Idle queue chain fixes. (2014)
+
+	* smtpserver/zpwmatch.c:
+	    Glibc has changed crypt(3) return, it can sometimes be NULL!
+	    (2014)
+
+	* libta/ctlopen.c:
+	    Support 64-bit machines properly. (2009)
+
+	* libta/lockaddr.c:
+	    Enhance lock-mode MMAP code. (2009)
+
+	* transports/smtp/smtp.c:
+	    Debugged pipelining support problems at resync to responses.
+	    (2014)
+
 2011-01-27  Matti Aarnio  <mea@zmailer.org>
 
 	* smtpserver/smtptls.c:

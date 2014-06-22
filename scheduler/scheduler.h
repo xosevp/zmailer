@@ -149,7 +149,8 @@ struct thread {
 	struct procinfo	*proc;		/* NULL or ptr to xport proc	    */
 	int		thrkids;	/* Number of procs at this thread   */
 	int		jobs;		/* How many items in this thread    */
-	int		unfed;		/* How many not yet fed to TAs	    */
+	int		rcpts;		/* recipients at those jobs	    */
+  	int		unfed;		/* How many not yet fed to TAs	    */
 	struct vertex   *nextfeed;	/* vertex within that thread	    */
 					/* feed_child() forwards nextfeed   */
 };
@@ -242,7 +243,9 @@ struct vertex {
 	time_t		ce_expiry2;	/* when this vertex expires ? w/o attempts */
 	int		attempts;	/* count of number of TA invocations */
 	int		retryindex;	/* cur index into ce->retries array  */
+#if 0
 	time_t		wakeup;		/* time to wake up and run this      */
+#endif
 	time_t		lastfeed;	/* When the last feed was ?	     */
 	time_t		nextrprttime;	/* next time after which collected
 					   reports of this message will be

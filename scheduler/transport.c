@@ -447,7 +447,8 @@ ta_hungry(proc)
 	  /* Disconnect from process chain */
 	  if (proc->pnext) proc->pnext->pprev = proc->pprev;
 	  if (proc->pprev) proc->pprev->pnext = proc->pnext;
-	  proc->pnext = proc->pprev = NULL;
+	  proc->pnext = NULL;
+	  proc->pprev = NULL;
 
 	  /* Next: either the thread changes, or
 	     the process moves into IDLE state. */
@@ -489,12 +490,14 @@ ta_hungry(proc)
 	  if (thr0) {
 
 	    /* Previously we were disconnected from the thread,
-	     now join back so that IDLE will disconnect us... */
+	     now join back to the head of the idle chain so that
+	     IDLE processing will disconnect us... */
 
 	    proc->pthread = thr0;
 	    thr0->thrkids += 1;
 	    proc->pnext   = thr0->proc;
 	    if (proc->pnext) proc->pnext->pprev = proc;
+	    proc->pprev   = NULL; /* already set */
 	    thr0->proc = proc;
 	  }
 
@@ -858,6 +861,7 @@ static void stashprocess(pid, fromfd, tofd, chwp, howp, vhead, argv)
 
 	proc->tofd          = tofd;
 	proc->pnext         = proc->pthread->proc;
+	/* proc->pprev = NULL; */
 	proc->pthread->proc = proc;
 	if (proc->pnext) proc->pnext->pprev = proc;
 
@@ -980,8 +984,16 @@ static void reclaim(fromfd, tofd)
 	if (proc->pthread) {
 
 	  /* Remove this entry from the chains */
-	  if (proc->pthread->proc == proc)
+
+	  /* Chain leader */
+	  if (proc->pthread->proc == proc) {
 	    proc->pthread->proc = proc->pnext;
+	  }
+	  /* Following should have been done.. */
+	  if (proc->pnext) proc->pnext->pprev = proc->pprev;
+	  if (proc->pprev) proc->pprev->pnext = proc->pnext;
+	  proc->pnext = NULL;
+	  proc->pprev = NULL;
 
 	  /* Disjoin the thread from the proc */
 	  proc->pthread->thrkids -= 1;
@@ -1015,6 +1027,8 @@ static void reclaim(fromfd, tofd)
 	/* Remove this entry from the chains */
 	if (proc->pnext) proc->pnext->pprev = proc->pprev;
 	if (proc->pprev) proc->pprev->pnext = proc->pnext;
+	proc->pnext = NULL;
+	proc->pprev = NULL;
 
 	/* If e.g. RESCHEDULE has not destroyed this thread-group.. */
 	if (proc->thg) {

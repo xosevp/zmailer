@@ -42,12 +42,21 @@ lockaddr(fd, map, offset, was, new, file, host, mypid)
 {
 	char	lockbuf[16]; /* FIXME: MAGIC SIZE KNOWLEDGE! */
 	int	newlock = 0;
+	int	do_mmap = 0;
 
 	if (!ta_lockmode) {
 	  ta_lockmode = getzenv("TALOCKMODE");
 #if defined(HAVE_MMAP)
-	  if (!ta_lockmode && ta_use_mmap > 0)
+	  if (!ta_lockmode && ta_use_mmap > 0) {
 	    ta_lockmode = "M"; /* MMAP */
+	  } else {
+#ifdef HAVE_FCNTL
+	    if (!ta_lockmode) ta_lockmode = "F"; /* FCNTL */
+#else
+	    if (!ta_lockmode) ta_lockmode = "W"; /* WRITE */
+#endif
+	  }
+	  do_mmap = (*ta_lockmode == 'M'  && map);
 #else
 #ifdef HAVE_FCNTL
 	  if (!ta_lockmode) ta_lockmode = "F"; /* FCNTL */
@@ -87,7 +96,7 @@ lockaddr(fd, map, offset, was, new, file, host, mypid)
 	  }
 	}
 #endif
-	if (map && *ta_lockmode == 'M') {
+	if (do_mmap) {
 	  /* MMAP()ed block helps.. */
 	  memcpy(lockbuf,map+offset,sizeof(lockbuf));
 	} else {
@@ -109,21 +118,21 @@ lockaddr(fd, map, offset, was, new, file, host, mypid)
 	  }
 	  lockbuf[0] = new;
 	  if (newlock) {
-	    if (new == _CFTAG_LOCK) {
+	    if (new == _CFTAG_LOCK) {	/* '~' */
 	      /* Mark the lock with client process-id */
 	      sprintf(lockbuf+1, "%*d", _CFTAG_RCPTPIDSIZE, mypid);
-	      if (map && *ta_lockmode == 'M')
+	      if (do_mmap)
 		memcpy(map+offset, lockbuf, _CFTAG_RCPTPIDSIZE+1);
 	      else if (write(fd,lockbuf,
 			     _CFTAG_RCPTPIDSIZE+1) != _CFTAG_RCPTPIDSIZE+1)
 		return 0;
-	    } else if (new == _CFTAG_DEFER) {
+	    } else if (new == _CFTAG_DEFER) { /* == _CFTAG_NORMAL == ' ' */
 #ifdef HAVE_FCNTL
 	      /* Using FCNTL region locking */
 #else
 	      /* Clear the lock location */
 	      memset(lockbuf+1, ' ', _CFTAG_RCPTPIDSIZE);
-	      if (map && *ta_lockmode == 'M')
+	      if (do_mmap)
 		memcpy(map+offset, lockbuf, _CFTAG_RCPTPIDSIZE+1);
 	      else if (write(fd,lockbuf,
 			     _CFTAG_RCPTPIDSIZE+1) != _CFTAG_RCPTPIDSIZE+1)
@@ -136,11 +145,14 @@ lockaddr(fd, map, offset, was, new, file, host, mypid)
 		   the diagnostics lines. */
 		memset(lockbuf+1, ' ', _CFTAG_RCPTPIDSIZE);
 
-	      if (map && *ta_lockmode == 'M')
+	      if (do_mmap)
 		memcpy(map+offset, lockbuf, _CFTAG_RCPTPIDSIZE+1);
-	      else if (write(fd,lockbuf,
-			     _CFTAG_RCPTPIDSIZE+1) != _CFTAG_RCPTPIDSIZE+1)
-		return 0;
+	      if ((!do_mmap) ||
+		  (do_mmap && (new == _CFTAG_OK || new == _CFTAG_NOTOK))) {
+		if (write(fd,lockbuf,
+			  _CFTAG_RCPTPIDSIZE+1) != _CFTAG_RCPTPIDSIZE+1)
+		  return 0;
+	      }
 	    }
 	  }
 	  return 1;

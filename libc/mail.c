@@ -533,7 +533,7 @@ _mail_close__(fp,inop, mtimep, mtimensp, async)
 	  }
 	  
 	  /* Here we are when there is only one entry in the inputdirs:*/
-	  if (s == NULL && i > 0 && *rd != 0) {
+	  if (ord == NULL && *rd != 0) {
 	    if (s) *s = 0;
 	    sprintf(nmessage, "%s/%s", postoffice, rd);
 	    if (s) *s = ':';

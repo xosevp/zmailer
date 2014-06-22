@@ -4,7 +4,7 @@
  */
 /*
  *	Lots of modifications (new guts, more or less..) by
- *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2003
+ *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-2007
  */
 
 /*
@@ -1449,6 +1449,7 @@ void query2(fpi, fpo)
 	  char **lines = (char **) malloc(sizeof(char *) * linespace);
 	  int threadspace = 256;
 	  int threadcnt   = 0;
+	  int did_sumreport = 0;
 	  threadtype *threads = (threadtype *) malloc(sizeof(threadtype) *
 						      threadspace);
 
@@ -1509,6 +1510,7 @@ void query2(fpi, fpo)
 	    char *host    = strchr(channel, '\t');
 	    char *rest    = "";
 	    char *b;
+	    int first = 1;
 
 	    if (host) {
 	      *host++ = 0;
@@ -1541,6 +1543,13 @@ void query2(fpi, fpo)
 	      if (*b == '.') {
 		--bufsize;
 		++b;
+	      }
+	      if (first && *b == '#') {
+		++b;
+		printf("%s\n",b);
+		first = 0;
+		/* did_sumreport = 1; */
+		continue;
 	      }
 
 	      if (threadcnt+2 >= threadspace) {
@@ -1582,7 +1591,8 @@ void query2(fpi, fpo)
 	      channel = threads[i].channel;
 	      host    = threads[i].host;
 
-	      printf("%s/%s:\n",channel, host);
+	      if (!did_sumreport)
+		printf("%s/%s:\n",channel, host);
 
 	    }
 
@@ -1630,12 +1640,12 @@ void query2(fpi, fpo)
 
 	      if (!verbose) {
 		/* First recipient in the group */
-		printf("%s tries, ", split[7]);
+		printf("%s tries,", split[7]);
 
 		*timebuf = 0;
 		saytime((long)(atol(split[4]) - now), timebuf, 1);
 
-		printf("expires in %s)", timebuf);
+		printf(" expires in %s)", timebuf);
 
 		printf(" %s\n", split[9]);
 	      } /* !verbose */
@@ -1647,19 +1657,22 @@ void query2(fpi, fpo)
 		if (cfp) free(cfp);
 		cfp = readmq2cfp(split[0]);
 	      }
+
 	      if (cfp) {
 		if (j == 0) {
 		  /* First recipient in the group */
 
+		  printf("%s tries,", split[7]);
+
 		  *timebuf = 0;
 		  saytime((long)(now - cfp->mtime), timebuf, 1);
 
-		  printf("%s tries, age %s, ", split[7], timebuf);
+		  printf(" age %s,", timebuf);
 
 		  *timebuf = 0;
 		  saytime((long)(atol(split[4]) - now), timebuf, 1);
 
-		  printf("expires in %s, %ld+%ld bytes)", timebuf,
+		  printf(" expires in %s, %ld+%ld bytes)", timebuf,
 			 (long)cfp->nlines, (long)cfp->msgbodyoffset);
 
 		  printf("\n");
@@ -1705,6 +1718,12 @@ void query2(fpi, fpo)
 		   but have 'from'! */
 		if (j == 0) {
 		  /* First recipient in the group */
+		  printf("%s tries,", split[7]);
+
+		  *timebuf = 0;
+		  saytime((long)(atol(split[4]) - now), timebuf, 1);
+		  printf(" expires in %s)\n", timebuf);
+
 		  printf("\t  from\t%s\n", *split[2] ? split[2] : "<>");
 		}
 	      }

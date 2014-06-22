@@ -214,12 +214,12 @@ char * zpwmatch(uname, password, uidp)
 
       char *cr = crypt(password, pw->pw_passwd);
 
-      if (strcmp(cr, pw->pw_passwd) == 0)
+      if (cr != NULL && strcmp(cr, pw->pw_passwd) == 0)
 	ok = 1;
       else if (spw) {
 	/* Ok, perhaps the second one contains usable encrypted password ? */
 	cr = crypt(password, spw->sp_pwdp);
-	if (strcmp(cr, spw->sp_pwdp) == 0)
+	if (cr != NULL && strcmp(cr, spw->sp_pwdp) == 0)
 	  ok = 1;
       }
 
@@ -249,7 +249,7 @@ char * zpwmatch(uname,password,uidp)
       *uidp = pw->pw_uid;
     }
 
-    return ((pw && (strcmp(cr, pw->pw_passwd) == 0))
+    return ((pw && cr && (strcmp(cr, pw->pw_passwd) == 0))
 	    ? NULL : "Authentication Failed");
 }
 # endif /* HAVE_SHADOW_H */

@@ -4,7 +4,7 @@
  */
 /*
  *	Lots of modifications (new guts, more or less..) by
- *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-1999-2003
+ *	Matti Aarnio <mea@nic.funet.fi>  (copyright) 1992-1999-2003-2007
  */
 
 #include "hostenv.h"
@@ -140,9 +140,9 @@ static int qpctlfile(p, spl)
 	    sfprintf(qpfp, "\t#");
 
 	  i = 0;
-	  if (vp->wakeup > qpnow) {
+	  if (vp->thread->wakeup > qpnow) {
 	    buf[0] = '\0';
-	    saytime((u_long)(vp->wakeup - qpnow), buf, 1);
+	    saytime((u_long)(vp->thread->wakeup - qpnow), buf, 1);
 	    sfprintf(qpfp, "(retry in %s", buf);
 	    ++i;
 	  } else if (vp->ce_pending) {

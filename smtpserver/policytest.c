@@ -310,7 +310,7 @@ int policyinit(state, rel, submission_mode_flags, valid_whoson)
 	sprintf(dbname, "%s.db", rel->dbpath);
 
 	openok = rel->sleepyrpc->open(rel->sleepyrpc,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 				      NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 				      dbname, NULL,  DB_BTREE,
@@ -324,13 +324,13 @@ int policyinit(state, rel, submission_mode_flags, valid_whoson)
 	/* Append '.db' to the name */
 	sprintf(dbname, "%s.db", rel->dbpath);
 
-#if defined(HAVE_DB3) || defined(HAVE_DB4)
+#if defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 
 	rel->btree = NULL;
 	openok = db_create(&rel->btree, NULL, 0);
 	if (openok == 0)
 	  openok = rel->btree->open(rel->btree,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 				    NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 				    dbname, NULL,  DB_BTREE,
@@ -360,13 +360,13 @@ int policyinit(state, rel, submission_mode_flags, valid_whoson)
 	/* Append '.db' to the name */
 	sprintf(dbname, "%s.dbh", rel->dbpath);
 
-#if defined(HAVE_DB3) || defined(HAVE_DB4)
+#if defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 
 	rel->bhash = NULL;
 	openok = db_create(&rel->bhash, NULL, 0);
 	if (openok == 0)
 	  openok = rel->bhash->open(rel->bhash,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 				    NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 				    dbname, NULL, DB_HASH,

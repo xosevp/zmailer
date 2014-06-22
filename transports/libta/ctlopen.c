@@ -378,7 +378,7 @@ ctlopen(file, channel, host, exitflagp, selectaddr, saparam)
 				   PROT_READ|PROT_WRITE,
 				   MAP_FILE|MAP_SHARED|MAP_VARIABLE,
 				   d->ctlfd, 0);
-	  if ((int)d->ctlmap == -1)
+	  if ((long)d->ctlmap == -1L)
 	    d->ctlmap = NULL; /* Failed ?? */
 	}
 #else

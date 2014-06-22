@@ -900,7 +900,7 @@ char *argv[];
 	break;
 #endif
 #ifdef HAVE_DB
-#if defined(HAVE_DB3) || defined(HAVE_DB4)
+#if defined(HAVE_DB3) || defined(HAVE_DB4) || defined(HAVE_DB5)
 
     case 3:
 	dbasename = strcpy(malloc(strlen(dbasename) + 8), dbasename);
@@ -910,7 +910,7 @@ char *argv[];
 	err = db_create(&dbfile, NULL, 0);
 	if (! err)
 	  err = dbfile->open(dbfile,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 			     NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 			     dbasename, NULL, DB_BTREE,
@@ -928,7 +928,7 @@ char *argv[];
 	err = db_create(&dbfile, NULL, 0);
 	if (! err)
 	  err = dbfile->open(dbfile,
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)
+#if ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 1)) || (DB_VERSION_MAJOR > 4)
 			     NULL, /* TXN id was added at SleepyDB 4.1 */
 #endif
 			     dbasename, NULL, DB_HASH,
