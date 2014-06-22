@@ -216,7 +216,7 @@ AC_ARG_WITH(zconfig,
         use_zcfg=1)
 load_zcfg=1
 AC_ARG_WITH(zconfig-noload,
-[  --with-zconfig-noload   Don't pre-load old values from possibly existing
+[  --with-zconfig-noload   Do not pre-load old values from possibly existing
                           ZCONFIG file.],
         load_zcfg=0)
 if test "$use_zcfg" = "0" ; then
@@ -333,7 +333,7 @@ AC_MSG_RESULT([Using ZMailer LOGDIR directory path: $LOGDIR])
 
 AC_SUBST(ROUTEUSER_IN_ABNORMAL_UNIX)
 use_routeuser=0
-AC_ARG_WITH(routeuser-is-abnormal,    [  --with-routeuser-is-abnormal={yes,no} define if your system doesn't get
+AC_ARG_WITH(routeuser-is-abnormal,    [  --with-routeuser-is-abnormal={yes,no} define if your system does not get
                           homedirs for users from getpwnam() call in router.
                           Giving here 'no' will produce errors at routing for
                           nonexistent users, not waiting until doing delivery
@@ -749,9 +749,9 @@ if test "$ac_cv_header_ndbm_h" = yes -a $without_ndbm = 0; then
     LIBS="$LIBS $LIBNDBM"
     AC_TRY_LINK([#include <ndbm.h>], [DBM *db;int i = dbm_error(db);], t_have_dbm_error=yes)
     LIBS="$t_oldLibs"
-    AC_MSG_RESULT([Located NDBM's  dbm_open()  routine at $t_found_at])
+    AC_MSG_RESULT([Located NDBM:s  dbm_open()  routine at $t_found_at])
   else
-    AC_MSG_RESULT([Didn't locate NDBM dbm_open() routine.   Maybe something better exists...])
+    AC_MSG_RESULT([Did not locate NDBM dbm_open() routine.   Maybe something better exists...])
     AC_MSG_RESULT([(This is for support of the original NDBM library in old systems, not])
     AC_MSG_RESULT([about API compability in e.g. GDBM and SleepyCat.)])
   fi
@@ -830,7 +830,7 @@ dnl         DBTYPE="ndbm"
 dnl       fi
 dnl     fi
 dnl   fi
-dnl   AC_MSG_RESULT([Located SDBM's  dbm_open()  routine at $t_found_at])
+dnl   AC_MSG_RESULT([Located SDBM:s  dbm_open()  routine at $t_found_at])
 dnl   if test "$t_found_at" != nowhere; then
 dnl     dblocation="$dblocation;$t_found_at"
 dnl     AC_DEFINE(HAVE_SDBM,1,[System has dbm_open()  in -lsdbm, and want to use it.])
@@ -889,7 +889,7 @@ if test "$ac_cv_header_gdbm_h" = yes -a $without_gdbm = 0 ; then
       fi
     fi
   fi
-  AC_MSG_RESULT([Located GNU GDBM's  gdbm_open()  routine at $t_found_at])
+  AC_MSG_RESULT([Located GNU GDBM:s  gdbm_open()  routine at $t_found_at])
   if test -z "$ac_cv_gdbm_fdesc" ; then
     t_oldLibs="$LIBS"
     LIBS="$LIBS -lgdbm"
@@ -948,7 +948,7 @@ if test "$ac_cv_header_db_185_h" = yes ; then
     fi
   fi
   if test "$t_found_at" = nowhere ; then
-    AC_MSG_RESULT([Didn't locate BSD DB 1.x  dbopen()  anywhere, although <db_185.h> file exists.])
+    AC_MSG_RESULT([Did not locate BSD DB 1.x  dbopen()  anywhere, although <db_185.h> file exists.])
   else
     AC_MSG_RESULT([Located BSD DB 1.x  dbopen()  routine at $t_found_at])
     if test "$LIBDB1" != "" -a "$LIBDB1" = "$LIBNDBM" ; then
@@ -1025,7 +1025,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db1_db_h" = yes ; then
     fi
   fi
   if test "$t_found_at" = nowhere ; then
-    AC_MSG_RESULT([Didn't locate BSD DB 1.x  dbopen()  anywhere, although <db.h> file exists.])
+    AC_MSG_RESULT([Did not locate BSD DB 1.x  dbopen()  anywhere, although <db.h> file exists.])
   else
     AC_MSG_RESULT([Located BSD DB 1.x  dbopen()  routine at $t_found_at])
     if test "$LIBDB1" != "" -a "$LIBDB1" = "$LIBNDBM" ; then
@@ -1043,7 +1043,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db1_db_h" = yes ; then
 fi
 
 dnl
-dnl Ok, a third case; SleepyCat's BSD DB 2.*;  db_open() et.al.
+dnl Ok, a third case; SleepyCat:s BSD DB 2.*;  db_open() et.al. 
 dnl
 
 #LIBDB2=""  # CAN INHERIT FROM ENVIRONMENT!
@@ -1106,7 +1106,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db2_db_h" = yes ; then
     fi
   fi
   if test "$t_found_at" = nowhere ; then
-    AC_MSG_RESULT([Didn't locate SleepyCat DB 2.x  db_open()  anywhere, although <db.h> file exists.  SleepyCat DB 2.x will not be used.])
+    AC_MSG_RESULT([Did not locate SleepyCat DB 2.x  db_open()  anywhere, although <db.h> file exists.  SleepyCat DB 2.x will not be used.])
   else
     AC_MSG_RESULT([Located SleepyCat DB 2.x  db_open()  routine at $t_found_at])
 
@@ -1148,7 +1148,7 @@ int err = (db->cursor)(db, NULL, &curs, 0);],
 fi
 
 dnl
-dnl Ok, fourth case; SleepyCat's BSD DB 3.*;  db_create() et.al.
+dnl Ok, fourth case; SleepyCat:s BSD DB 3.*;  db_create() et.al.
 dnl
 
 #LIBDB3=""  # CAN INHERIT FROM ENVIRONMENT!
@@ -1215,7 +1215,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db3_db_h" = yes ; then
     fi
   fi
   if test "$t_found_at" = nowhere ; then
-    AC_MSG_RESULT([Didn't locate SleepyCat DB 3.x  db_create()  anywhere, although <db.h> file exists.  SleepyCat DB 3.x will not be used.])
+    AC_MSG_RESULT([Did not locate SleepyCat DB 3.x  db_create()  anywhere, although <db.h> file exists.  SleepyCat DB 3.x will not be used.])
   else
     AC_MSG_RESULT([Located SleepyCat DB 3.x  db_create()  routine at $t_found_at])
     dblocation="$dblocation;$t_found_at"
@@ -1234,7 +1234,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db3_db_h" = yes ; then
 fi
 
 dnl
-dnl Ok, fifth case; SleepyCat's BSD DB 4.*;  db_create() et.al.
+dnl Ok, fifth case; SleepyCat:s BSD DB 4.*;  db_create() et.al.
 dnl
 
 #LIBDB4=""  # CAN INHERIT FROM ENVIRONMENT!
@@ -1301,7 +1301,7 @@ if test "$ac_cv_header_db_h" = yes -o "$ac_cv_header_db4_db_h" = yes ; then
     fi
   fi
   if test "$t_found_at" = nowhere ; then
-    AC_MSG_RESULT([Didn't locate SleepyCat DB 4.x  db_create()  anywhere, although <db.h> file exists.  SleepyCat DB 4.x will not be used.])
+    AC_MSG_RESULT([Did not locate SleepyCat DB 4.x  db_create()  anywhere, although <db.h> file exists.  SleepyCat DB 4.x will not be used.])
   else
     AC_MSG_RESULT([Located SleepyCat DB 4.x  db_create()  routine at $t_found_at])
     dblocation="$dblocation;$t_found_at"
@@ -1391,13 +1391,13 @@ if test $use_ldap = 0 ; then
     fi
 else
     if test -z "$LIBLDAP" -a -z "$INCLLDAP" ; then
-	AC_MSG_RESULT([*** Automated tests didn't find LDAP libraries])
+	AC_MSG_RESULT([*** Automated tests did not find LDAP libraries])
 	AC_MSG_ERROR([*** THE  --with-ldap  IS CONSIDERED FAILED])
     fi
 fi
 if test -n "$LIBLDAP" -o -n "$INCLLDAP" ; then
     # LDAP related INCL or LIB references aren't completely empty.
-    AC_DEFINE(USE_LDAP, 1, [Support of LDAP isn't explicitely disabled])
+    AC_DEFINE(USE_LDAP, 1, [Support of LDAP is not explicitely disabled])
 fi
 
 # Lets build a nice single substitute variable
@@ -1407,7 +1407,7 @@ AC_SUBST(LIBLOCALDBMS)
 # LIBNDBM, we still have ndbm routines, but want to use (likely)
 # ones from LIBDB instead of LIBGDBM...
 # .. and we have explicite "-lc" for NDBM in case it is at LIBC, as otherwise
-# the linkage order will make a surprise for us by overloading GDBM's
+# the linkage order will make a surprise for us by overloading GDBM:s
 # compability layer instead of the real NDBM.
 sep=""
 if test "$LIBNDBM" != "" ; then
@@ -1450,7 +1450,7 @@ if test "$LIBLDAP" != "" ; then
 fi
 
 if test "$dblocation" = "" ; then
-  AC_MSG_RESULT([>>> OOPS!  You don't have any kind of modern DBMs in your])
+  AC_MSG_RESULT([>>> OOPS!  You do not have any kind of modern DBMs in your])
   AC_MSG_RESULT([>>>        system!  We will not use ancient single-db using])
   AC_MSG_RESULT([>>>        <dbm.h> even if you had it.  Now you have only])
   AC_MSG_RESULT([>>>        relation (external) db types: ordered, unordered])
@@ -1865,7 +1865,7 @@ if test "x$LIBRESOLV" = "x"; then
               [_res.options = RES_INIT;],
                 ac_cv_var__res_options=yes);
   if test "$ac_cv_var__res_options" != "yes"; then
-    AC_MSG_RESULT([Can't do without  -lresolv  to link resolver's  _res.options])
+    AC_MSG_RESULT([Ca not do without  -lresolv  to link resolver:s  _res.options])
     LIBRESOLV="-lresolv"
   fi
   LIBS="$t_oldLibs"
@@ -2644,7 +2644,7 @@ dnl     AC_DEFINE(SVR4_elf)
 dnl     LIBLOADAVER="$LIBLOADAVER -lelf"
 dnl     AC_MSG_RESULT([Seems to need  -lelf  to link nlist()])
 dnl     else
-dnl     AC_MSG_RESULT([Don't know how to extract system load-average -- but don't really need it])
+dnl     AC_MSG_RESULT([Does not know how to extract system load-average -- but does not really need it])
 dnl     fi
 dnl fi
 dnl LIBS="$elf_LIBS"
@@ -2662,7 +2662,7 @@ dnl AC_FUNC_UTIME_NULL
 
 AC_SUBST(TA_USE_MMAP)
 TA_USE_MMAP="0"
-AC_ARG_WITH(ta-mmap,   [  --with-ta-mmap           TA's to use MMAP for reading the message bodies],
+AC_ARG_WITH(ta-mmap,   [  --with-ta-mmap           TA:s to use MMAP for reading the message bodies],
         use_ta_mmap=1, use_ta_mmap=0)
 if test "$use_ta_mmap" = "1"; then
     TA_USE_MMAP="1"
@@ -2798,7 +2798,7 @@ if test "$ap_ssltk_dc" = "yes"; then
     AC_CHECK_HEADER(
       [distcache/dc_client.h],
       [],
-      [tmp_nomessage="can't include distcache headers"
+      [tmp_nomessage="can not include distcache headers"
       ap_ssltk_dc="no"])
     if test "$tmp_forced" = "yes" -a "x$ap_ssltk_dc" = "xno"; then
       AC_MSG_ERROR(distcache support failed: $tmp_nomessage)
